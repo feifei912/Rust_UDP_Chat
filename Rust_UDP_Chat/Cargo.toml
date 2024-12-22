@@ -3,6 +3,7 @@ name = "Rust_UDP_Chat"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
 warp = "0.3"
