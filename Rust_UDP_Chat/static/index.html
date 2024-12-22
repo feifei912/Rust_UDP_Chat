@@ -24,13 +24,13 @@
         }
         #messages {
             flex-grow: 1;
-            height: calc(100vh - 250px); /* 固定高度，确保滚动正常 */
+            height: calc(100vh - 250px);
             overflow-y: auto;
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #dee2e6;
             border-radius: 5px;
-            scroll-behavior: smooth; /* 平滑滚动 */
+            scroll-behavior: smooth;
         }
         .message {
             margin-bottom: 10px;
@@ -42,16 +42,17 @@
         .message.received {
             background-color: #f1f0f0;
             align-self: flex-start;
+            margin-right: auto;
         }
         .message.sent {
             background-color: #007bff;
             color: white;
             align-self: flex-end;
+            margin-left: auto;
         }
         .message .header {
             font-size: 0.8em;
             margin-bottom: 4px;
-            color: #666;
         }
         .message.sent .header {
             color: #fff;
@@ -73,22 +74,46 @@
             padding: 10px;
             border-radius: 5px;
         }
-        #messageInput {
-            border-radius: 20px;
-            padding: 8px 15px;
-        }
-        #sendButton {
-            border-radius: 20px;
-            margin-left: 10px;
-        }
         .card {
             height: calc(100vh - 40px);
             margin: 20px 0;
+            border: none;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background-color: #0d6efd;
+            padding: 1rem;
+            border-bottom: none;
         }
         .card-body {
             display: flex;
             flex-direction: column;
             padding: 15px;
+        }
+        #messageInput {
+            border-radius: 20px;
+            padding: 8px 15px;
+            margin-right: 10px;
+        }
+        #sendButton {
+            border-radius: 20px;
+            padding: 8px 20px;
+        }
+        .username-container {
+            position: relative;
+        }
+        #username {
+            background-color: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+        #username:focus {
+            background-color: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .content {
+            margin: 5px 0;
         }
     </style>
 </head>
@@ -97,11 +122,13 @@
         <div class="row">
             <div class="col-md-8 offset-md-2">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h3 class="mb-0">聊天室</h3>
-                            <div class="input-group input-group-sm" style="width: 200px;">
-                                <input type="text" id="username" class="form-control" placeholder="请输入昵称" value="访客">
+                            <h3 class="mb-0 text-white">聊天室</h3>
+                            <div class="username-container">
+                                <div class="input-group input-group-sm" style="width: 200px;">
+                                    <input type="text" id="username" class="form-control" placeholder="请输入昵称">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -123,30 +150,64 @@
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
         const username = document.getElementById('username');
+        let isConnected = false;
 
-        // 保存用户名到本地存储
-        username.value = localStorage.getItem('chatUsername') || '访客';
-        username.addEventListener('change', () => {
-            localStorage.setItem('chatUsername', username.value);
-        });
+        // 生成随机用户名
+        function generateRandomUsername() {
+            return '访客' + Math.floor(Math.random() * 10000);
+        }
+
+        // 从 localStorage 获取用户名，如果没有则生成新的
+        function initializeUsername() {
+            let savedUsername = localStorage.getItem('chatUsername');
+            if (!savedUsername) {
+                savedUsername = generateRandomUsername();
+                localStorage.setItem('chatUsername', savedUsername);
+            }
+            username.value = savedUsername;
+            return savedUsername;
+        }
+
+        // 初始化用户名
+        initializeUsername();
 
         function getCurrentTime() {
             return new Date().toLocaleTimeString();
         }
 
         function scrollToBottom() {
-            // 确保滚动到底部
             messages.scrollTop = messages.scrollHeight;
         }
 
-        function appendMessage(message, isSent = false) {
-            const messageDiv = document.createElement('div');
+        // 用户名更改处理
+        let currentUsername = username.value;
+        username.addEventListener('change', async () => {
+            const newUsername = username.value.trim();
             
-            // 系统消息使用特殊样式
-            if (message.user_name === 'System') {
+            // 验证用户名格式
+            if (newUsername.length < 2 || newUsername.length > 20) {
+                alert('用户名长度应在2-20个字符之间');
+                username.value = currentUsername;
+                return;
+            }
+
+            // 发送用户名更改请求
+            const changeMessage = {
+                type: 'Init',
+                user_name: newUsername,
+                timestamp: getCurrentTime()
+            };
+            socket.send(JSON.stringify(changeMessage));
+        });
+
+        function appendMessage(message, isSent = false) {
+            if (message.type === 'System') {
+                const messageDiv = document.createElement('div');
                 messageDiv.className = 'system-message';
                 messageDiv.textContent = `${message.content} (${message.timestamp})`;
-            } else {
+                messages.appendChild(messageDiv);
+            } else if (message.type === 'Chat') {
+                const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
                 
                 const header = document.createElement('div');
@@ -164,21 +225,44 @@
                 messageDiv.appendChild(header);
                 messageDiv.appendChild(content);
                 messageDiv.appendChild(timestamp);
+                messages.appendChild(messageDiv);
             }
-            
-            messages.appendChild(messageDiv);
             scrollToBottom();
         }
 
+        socket.addEventListener('open', () => {
+            console.log('WebSocket connected');
+            const initMessage = {
+                type: 'Init',
+                user_name: username.value,
+                timestamp: getCurrentTime()
+            };
+            socket.send(JSON.stringify(initMessage));
+            isConnected = true;
+        });
+
         socket.addEventListener('message', (event) => {
             const message = JSON.parse(event.data);
-            appendMessage(message, message.user_name === username.value);
+            
+            if (message.type === 'Error') {
+                alert(message.content);
+                username.value = currentUsername;
+                return;
+            }
+
+            if (message.type === 'Init' && message.user_name === username.value) {
+                currentUsername = username.value;
+                localStorage.setItem('chatUsername', currentUsername);
+            }
+
+            appendMessage(message, message.type === 'Chat' && message.user_name === username.value);
         });
 
         function sendMessage() {
             const content = messageInput.value.trim();
             if (content && socket.readyState === WebSocket.OPEN) {
                 const message = {
+                    type: 'Chat',
                     user_name: username.value,
                     content: content,
                     timestamp: getCurrentTime()
@@ -195,30 +279,27 @@
             }
         });
 
-        // 连接状态处理
-        socket.addEventListener('open', () => {
-            console.log('WebSocket connected');
-            const message = {
-                user_name: 'System',
-                content: `${username.value} 加入了聊天室`,
-                timestamp: getCurrentTime()
-            };
-            socket.send(JSON.stringify(message));
-        });
-
         socket.addEventListener('close', () => {
             console.log('WebSocket disconnected');
             const message = {
-                user_name: 'System',
+                type: 'System',
                 content: '连接已断开，请刷新页面重新连接',
                 timestamp: getCurrentTime()
             };
             appendMessage(message);
+            isConnected = false;
+        });
+
+        // 添加输入框验证
+        username.addEventListener('input', (e) => {
+            const value = e.target.value;
+            if (value.length > 20) {
+                e.target.value = value.slice(0, 20);
+            }
         });
 
         // 监听窗口大小变化，确保消息始终可见
         window.addEventListener('resize', scrollToBottom);
-        
     </script>
 </body>
 </html>
