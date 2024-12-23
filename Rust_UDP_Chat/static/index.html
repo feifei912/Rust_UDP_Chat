@@ -166,7 +166,9 @@
     </div>
 
     <script>
-        const socket = new WebSocket('ws://127.0.0.1:8080/ws');
+        // 获取服务器 IP
+        const serverIP = window.location.hostname;
+        const socket = new WebSocket(`ws://${serverIP}:8080/ws`);
         const messages = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');

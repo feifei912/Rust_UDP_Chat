@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::broadcast;
 use warp::Filter;
+use std::net::IpAddr;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -29,11 +30,24 @@ enum ChatMessage {
 
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
+fn get_local_ip() -> Option<IpAddr> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    Some(socket.local_addr().ok()?.ip())
+}
+
 #[tokio::main]
 async fn main() {
     let (tx, _rx) = broadcast::channel(100);
     let tx = Arc::new(tx);
     let usernames = Arc::new(Mutex::new(HashSet::new()));
+
+    // 获取并显示本地IP
+    if let Some(local_ip) = get_local_ip() {
+        println!("服务器运行于:");
+        println!("本地访问: http://127.0.0.1:8080");
+        println!("局域网访问: http://{}:8080", local_ip);
+    }
 
     let static_files = warp::path("static").and(warp::fs::dir("static"));
     let index = warp::path::end().and(warp::fs::file("static/index.html"));
@@ -51,8 +65,9 @@ async fn main() {
 
     let routes = static_files.or(index).or(ws_route);
 
-    println!("Server started at http://127.0.0.1:8080");
-    warp::serve(routes).run(([127, 0, 0, 1], 8080)).await;
+    println!("Server started at http://0.0.0.0:8080");
+    // 修改监听地址为 0.0.0.0
+    warp::serve(routes).run(([0, 0, 0, 0], 8080)).await;
 }
 
 async fn handle_client(
@@ -151,17 +166,31 @@ async fn handle_client(
 
     // 清理用户名和发送离开消息
     if !user_name.is_empty() {
-        {
-            let mut usernames = usernames.lock().unwrap();
-            usernames.remove(&user_name);
-        } // MutexGuard在这里被释放
-
-        let leave_msg = ChatMessage::System {
-            content: format!("{} 离开了聊天室", user_name),
-            timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+        // 使用作用域来确保 MutexGuard 被及时释放
+        let username_removed = {
+            let mut usernames = match usernames.lock() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    eprintln!("Failed to acquire usernames lock: {}", e);
+                    return;
+                }
+            };
+            usernames.remove(&user_name)
         };
-        let _ = tx.send(leave_msg);
+
+        if username_removed {
+            let leave_msg = ChatMessage::System {
+                content: format!("{} 离开了聊天室", user_name),
+                timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+            };
+            
+            if let Err(e) = tx.send(leave_msg) {
+                eprintln!("用户 {} 离开消息发送失败: {}", user_name, e);
+            } else {
+                println!("用户 {} 已离开聊天室", user_name);
+            }
+        }
     }
 
-    println!("Client disconnected: {}", my_id);
+    println!("客户端断开连接: {}", my_id);
 }
