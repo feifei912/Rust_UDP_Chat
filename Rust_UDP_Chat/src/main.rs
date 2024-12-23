@@ -88,6 +88,16 @@ async fn handle_client(
                                 continue;
                             }
 
+                            // 发送用户名更改的系统消息
+                            if !user_name.is_empty() && user_name != name {
+                                let change_msg = ChatMessage::System {
+                                    content: format!("{} 将用户名更改为 {}", user_name, name),
+                                    timestamp: timestamp.clone(),
+                                };
+                                let _ = tx.send(change_msg);
+                            }
+
+                            
                             // 添加新用户名
                             {
                                 let mut usernames = usernames.lock().unwrap();
