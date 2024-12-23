@@ -3,6 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- 添加移动端视口设置 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>聊天室</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -11,36 +13,38 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            /* 禁止页面弹性滚动 */
+            overflow: hidden;
+            -webkit-overflow-scrolling: touch;
         }
 
         .chat-container {
             flex-grow: 1;
+            width: 100%;
             max-width: 800px;
-            margin: 20px auto;
+            margin: 10px auto;
             background: white;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
-            padding: 20px;
+            padding: 10px;
         }
 
         #messages {
             flex-grow: 1;
-            height: calc(100vh - 250px);
+            height: calc(100vh - 200px);
             overflow-y: auto;
             padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            scroll-behavior: smooth;
+            margin-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
         }
 
         .message {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             padding: 8px 12px;
             border-radius: 15px;
-            max-width: 70%;
+            max-width: 85%;
             word-wrap: break-word;
         }
 
@@ -80,9 +84,11 @@
         }
 
         .input-group {
-            margin-top: 10px;
+            margin-top: 5px;
+            /* 减小顶部间距 */
             background: white;
-            padding: 10px;
+            padding: 8px;
+            /* 减小padding */
             border-radius: 5px;
         }
 
@@ -91,6 +97,7 @@
             margin: 20px 0;
             border: none;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            bottom: 15px;
         }
 
         .card-header {
@@ -103,6 +110,8 @@
             display: flex;
             flex-direction: column;
             padding: 15px;
+            padding-bottom: 10px;
+            /* 减少底部padding */
         }
 
         #messageInput {
@@ -135,7 +144,73 @@
         .content {
             margin: 5px 0;
         }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                margin: 0;
+                border-radius: 0;
+                height: 100vh;
+            }
+
+            .message {
+                font-size: 14px;
+                padding: 6px 10px;
+            }
+
+            .message .header {
+                font-size: 12px;
+            }
+
+            .message .timestamp {
+                font-size: 10px;
+            }
+
+            #messageInput {
+                font-size: 16px;
+                /* 防止iOS自动缩放 */
+                padding: 8px;
+            }
+
+            .input-group {
+                margin-top: 5px;
+                /* Adjust the margin to move the input group up */
+                padding: 5px;
+                /* Adjust the padding to move the input group up */
+            }
+        }
+
+        /* 针对桌面端的特定样式 */
+        @media (min-width: 769px) {
+            .input-group {
+                margin-bottom: 0px;
+                /* 移除底部间距 */
+                position: relative;
+                bottom: 15px;
+                /* 向上移动 */
+            }
+
+            .card-body {
+                padding-bottom: 15px;
+                /* 减少底部内边距 */
+            }
+
+            #messages {
+                max-height: calc(100vh - 200px);
+                /* 调整消息容器高度 */
+                overflow-y: auto;
+                margin-bottom: 10px;
+            }
+        }
+
+        /* 修复iOS中的输入框问题 */
+        input,
+        textarea {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
     </style>
+
 </head>
 
 <body>
@@ -147,7 +222,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <h3 class="mb-0 text-white">聊天室</h3>
                             <div class="username-container">
-                                <div class="input-group input-group-sm" style="width: 200px;">
+                                <div class="input-group input-group-sm" style="width: 200px;top: 1px;">
                                     <input type="text" id="username" class="form-control" placeholder="请输入昵称">
                                 </div>
                             </div>
